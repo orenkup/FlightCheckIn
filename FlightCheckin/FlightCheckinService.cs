@@ -40,17 +40,22 @@ namespace FlightCheckin
             var result = new OperationResult();
             try
             {
-                var flight = _flightRepository.GetByID(flightId);
-				if(flight!=null)
-				{
-					flight.Checkin(passengerId, numberOfBags, baggagesWeight);
-					_flightRepository.Save(flight);
-					result.IsSuccess = true;
-				}
-				else
-				{					
-					result.ErrorMessage = $(flight with id {flightId} does not exist.";
-				}
+                // we use here a simple lock on the flightid to ensure that only one passenger can checkin at a time (so that we will not have 2 passengers book the same seat at the same time).
+                // in a distributed system with multiple instances of the service we should use a distributed lock like redis.
+                lock (flightId.ToString()) 
+                {
+                    var flight = _flightRepository.GetByID(flightId);
+                    if (flight != null)
+                    {
+                        flight.Checkin(passengerId, numberOfBags, baggagesWeight);
+                        _flightRepository.Save(flight);
+                        result.IsSuccess = true;
+                    }
+                    else
+                    {
+                        result.ErrorMessage = $"flight with id { flightId} does not exist.";
+                    }    
+                }
             }
             catch (Exception ex)
             {                
